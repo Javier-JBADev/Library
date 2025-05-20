@@ -1,32 +1,55 @@
-# Prerequisites
-*.d
+# Ignore Visual Studio solution, project, and related files
+*.sln
+*.suo
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sdf
+*.VC.db
+*.VC.VC.opendb
+*.ncb
+*.opendb
+*.db
 
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.obj
+# Ignore build output folders
+[Bb]in/
+[Oo]bj/
+ipch/
+*.log
 
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
+# Ignore build artifacts
 *.exe
-*.out
-*.app
+*.dll
+*.lib
+*.pdb
+*.idb
+*.iobj
+*.ipch
+*.ilk
+*.tlog
+*.lastbuildstate
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.bak
+*.user
+*.cache
+
+# Ignore crash dumps
+*.dmp
+
+# Ignore Visual Studio settings and folders
+.vs/
+.vscode/
+*.sln.docstates
+
+# CMake intermediate files (optional, if you're using CMake)
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# OS-specific files
+*.DS_Store
+Thumbs.db
