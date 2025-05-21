@@ -24,22 +24,23 @@ class DelegateInstance : public IDelegateBase<Args...>
   public:
     using MethodPtr = void(ClassType::*)(Args...);
 
-    DelegateInstance(ClassType* obj, MethodPtr m) : object(obj), method(m){}
+    DelegateInstance(std::weak_ptr<ClassType> obj, MethodPtr m) : object(obj), method(m){}
 
     void Execute(Args... args) override
     {
-      if(object && method)
-        (object->*method)(args...);
+      if (auto locked = object.lock())
+        (locked.get()->*method)(args...);
     }
 
     bool IsBound(void* objectPtr, void* methodPtrRaw) const override
     {
-      MethodPtr* incomingMethod = static_cast<MethodPtr*>(methodPtrRaw);
-      return (object == objectPtr && *incomingMethod == method);
+      auto locked = object.lock();
+      MethodPtr incomingMethod = *static_cast<MethodPtr*>(methodPtrRaw);
+      return (locked.get() == objectPtr && incomingMethod == method);
     }
 
   private:
-    ClassType* object;
+    std::weak_ptr<ClassType> object;
     MethodPtr method;
 };
 
@@ -48,7 +49,7 @@ class MulticastDelegate
 {
   public:
     template<typename ClassType>
-    void Add(ClassType* object, void(ClassType::* method)(Args...))
+    void Add(std::shared_ptr<ClassType> object, void(ClassType::* method)(Args...))
     {
       // Prevent duplicate bindings
       if(!IsBound(object, method))
@@ -56,25 +57,36 @@ class MulticastDelegate
     }
 
     template<typename ClassType>
-    void Remove(ClassType* object, void (ClassType::* method)(Args...))
+    void Remove(std::shared_ptr<ClassType> object, void (ClassType::* method)(Args...))
     {
       using MethodPtr = void (ClassType::*)(Args...);
 
-        auto it = std::remove_if(vDelegates.begin(), vDelegates.end(),
-          [&](const std::shared_ptr<IDelegateBase<Args...>>& del)
-          {
-            // Cast member function pointer to void* pointer and pass the address
-            return del->IsBound(object, (void*)&method);
-          });
+      void* methodPtr = static_cast<void*>(&method);
+
+      auto it = std::remove_if(vDelegates.begin(), vDelegates.end(),
+                [&](const std::shared_ptr<IDelegateBase<Args...>>& del)
+                {
+                  // Cast member function pointer to void* pointer and pass the address
+                  return del->IsBound(object.get(), methodPtr);
+                });
+
       vDelegates.erase(it, vDelegates.end());
     }
 
-    template<typename ClassType>
-    bool IsBound(ClassType* object, void (ClassType::* m)(Args...))
+    void RemoveAll()
     {
+      vDelegates.clear();
+    }
+
+    template<typename ClassType>
+    bool IsBound(std::shared_ptr<ClassType> object, void (ClassType::* m)(Args...))
+    {
+      void* objectPtr = object.get();
+      void* methodPtr = static_cast<void*>(&m);
+
       for(auto& delegate : vDelegates)
       {
-        if(delegate->IsBound(object, (void*)&m))
+        if(delegate->IsBound(objectPtr, methodPtr))
           return true;
       }
       return false;
