@@ -9,8 +9,18 @@
 #include <vector>
 #include <functional>
 
+template<typename... Args>
+class IDelegateBase
+{
+
+  public:
+    virtual ~IDelegateBase() = default;
+    virtual void Execute(Args... args) = 0;
+
+};
+
 template<typename ClassType, typename... Args>
-class DelegateInstance
+class DelegateInstance : public IDelegateBase<Args...>
 {
 
   public:
@@ -18,7 +28,7 @@ class DelegateInstance
 
     DelegateInstance(ClassType* pObject, MethodPtr pMethod) : Object(pObject), Method(pMethod) {}
 
-    void Execute(Args... pArgs)
+    void Execute(Args... pArgs) override
     {
       
       if(Object && Method)
@@ -26,7 +36,7 @@ class DelegateInstance
 
     }
 
-    void IsBoundTo(ClassType* pObject, MethodPtr pMethod) const
+    bool IsBoundTo(ClassType* pObject, MethodPtr pMethod) const
     {
     
       return Object == pObject && Method == pMethod;
@@ -36,5 +46,29 @@ class DelegateInstance
   private:
     ClassType* Object;
     MethodPtr Method;
+
+};
+
+template<typename... Args>
+class MulticastDelegate
+{
+
+  public:
+    template<typename ClassType>
+    void Add(ClassType* object, void(ClassType::*method)(Args...))
+    {      
+      vDelegates.push_back(std::make_shared<DelegateInstance<ClassType, Args...>>(object, method));
+    }
+
+    void Broadcast(Args... args)
+    {
+      for(const auto& delegate : vDelegates)
+      {
+        delegate->Execute(args...);
+      }
+    }
+
+  private:
+    std::vector<std::shared_ptr<IDelegateBase<Args...>>> vDelegates;
 
 };
