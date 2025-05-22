@@ -58,6 +58,7 @@ class IDelegateBase
     virtual ~IDelegateBase() = default;
     virtual void Execute(Args... args) = 0;
     virtual bool IsBound(void* objectPtr, void* methodPtrRaw) const = 0;
+    virtual bool IsExpired() const = 0;
 };
 
 template<typename ClassType, typename... Args>
@@ -79,6 +80,11 @@ class DelegateInstance : public IDelegateBase<Args...>
       auto locked = object.lock();
       MethodPtr incomingMethod = *static_cast<MethodPtr*>(methodPtrRaw);
       return (locked.get() == objectPtr && incomingMethod == method);
+    }
+
+    bool IsExpired() const override
+    {
+      return object.expired();
     }
 
   private:
@@ -138,7 +144,8 @@ class MulticastDelegate
     {
       for(const std::shared_ptr<IDelegateBase<Args...>>& delegate : vDelegates)
       {
-        delegate->Execute(args...);
+        if(!delegate->IsExpired())
+          delegate->Execute(args...);
       }
     }
 
