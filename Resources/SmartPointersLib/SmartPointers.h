@@ -68,7 +68,7 @@ namespace JBA
   class SharedControlBlock
   {
     public:
-      SharedControlBlock() : _ref(nullptr), _refCounter(0) {};
+      SharedControlBlock(T* ref = nullptr) : _ref(ref), _refCounter(0) {};
 
     public:
       T* _ref;
@@ -83,15 +83,25 @@ namespace JBA
       SharedControlBlock<T>* _ptr;
 
     public:
-      explicit shared_ptr(T* p = nullptr)
+      shared_ptr() : _ptr(nullptr) {}
+
+      explicit shared_ptr(T* p)
       {
         _ptr = new SharedControlBlock<T>();
         _ptr->_ref = p;
-        ++_ptr->_refCounter;
-          
+        ++_ptr->_refCounter;          
       }
+
+      explicit shared_ptr(SharedControlBlock<T>* sharedBlock) : _ptr(sharedBlock)
+      {
+        ++_ptr->_refCounter;
+      }
+
       ~shared_ptr()
       {
+        if(!_ptr)
+          return;
+        
         --_ptr->_refCounter;
         if(_ptr->_refCounter == 0)
         {
@@ -108,14 +118,17 @@ namespace JBA
 
       shared_ptr& operator=(const shared_ptr& other)
       {
-        /*if(this == other)
-          return *this;*/
+        if(this == &other)
+          return *this;
 
         if(nullptr != _ptr)
         {
           --_ptr->_refCounter;
           if(_ptr->_refCounter == 0)
+          {
+            delete _ptr->_ref;
             delete _ptr;
+          }
         }
 
         _ptr = other._ptr;
@@ -125,10 +138,10 @@ namespace JBA
 
       }
 
-      T* get() const { return _ptr; }
-      T& operator*() const { return *_ptr; }
-      T* operator->() const { return _ptr; }
-
+      T* get() const { return _ptr->_ref; }
+      T& operator*() const { return *_ptr->_ref; }
+      T* operator->() const { return _ptr->_ref; }
+      
   };
 
   /*
@@ -139,6 +152,13 @@ namespace JBA
   {
     unique_ptr<T> ptr(new T(std::forward<Args>(args)...));
     return ptr;
+  }
+
+  template <typename T, typename... Args>
+  shared_ptr<T> make_shared(Args&&... args)
+  {
+    SharedControlBlock<T>* block = new SharedControlBlock<T>(new T(std::forward<Args>(args)...));
+    return shared_ptr<T>(block);
   }
 
 }
