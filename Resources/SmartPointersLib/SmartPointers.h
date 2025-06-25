@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <mutex>
 
 namespace JBA
 {
@@ -73,6 +74,7 @@ namespace JBA
     public:
       T* _ref;
       size_t _refCounter;
+      std::mutex _mutex;
   };
 
   /// shared_ptr
@@ -87,13 +89,17 @@ namespace JBA
 
       explicit shared_ptr(T* p)
       {
-        _ptr = new SharedControlBlock<T>();
-        _ptr->_ref = p;
+        _ptr = new SharedControlBlock<T>(p);
+        std::lock_guard<std::mutex> lock(_ptr->_mutex);
         ++_ptr->_refCounter;          
       }
 
       explicit shared_ptr(SharedControlBlock<T>* sharedBlock) : _ptr(sharedBlock)
       {
+        if(!_ptr)
+          return;
+
+        std::lock_guard<std::mutex> lock(_ptr->_mutex);
         ++_ptr->_refCounter;
       }
 
@@ -102,6 +108,7 @@ namespace JBA
         if(!_ptr)
           return;
         
+        std::lock_guard<std::mutex> lock(_ptr->_mutex);
         --_ptr->_refCounter;
         if(_ptr->_refCounter == 0)
         {
@@ -113,6 +120,10 @@ namespace JBA
       shared_ptr(const shared_ptr& other)
       {
         _ptr = other._ptr;
+        if(!_ptr)
+          return;
+
+        std::lock_guard<std::mutex> lock(_ptr->_mutex);
         ++_ptr->_refCounter;
       }
 
@@ -120,9 +131,10 @@ namespace JBA
       {
         if(this == &other)
           return *this;
-
+        
         if(nullptr != _ptr)
         {
+          std::lock_guard<std::mutex> lock(_ptr->_mutex);
           --_ptr->_refCounter;
           if(_ptr->_refCounter == 0)
           {
@@ -132,13 +144,18 @@ namespace JBA
         }
 
         _ptr = other._ptr;
-        ++_ptr->_refCounter;
+
+        if(_ptr)
+        {
+          std::lock_guard<std::mutex> lock(_ptr->_mutex);
+          ++_ptr->_refCounter;
+        }
 
         return *this;
 
       }
 
-      T* get() const { return _ptr->_ref; }
+      T* get() const { return _ptr ? _ptr->_ref : nullptr; }
       T& operator*() const { return *_ptr->_ref; }
       T* operator->() const { return _ptr->_ref; }
       
